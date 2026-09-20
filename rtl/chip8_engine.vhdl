@@ -23,10 +23,23 @@ begin
                            (to_integer(unsigned(pixel_x)));
 
     process (clock)
+        variable test_pattern : framebuffer_t;
     begin
         if rising_edge(clock) then
             if reset = '1' then
-                framebuffer <= (others => (others => '0'));
+                test_pattern := (others => (others => '0'));
+
+                test_pattern(0) := (others => '1');
+                test_pattern(31) := (others => '1');
+
+                for y in 0 to 31 loop
+                    test_pattern(y)(0) := '1';
+                    test_pattern(y)(63) := '1';
+                    test_pattern(y)(2 * y) := '1';
+                    test_pattern(y)(63 - 2*y) := '1';
+                end loop;
+
+                framebuffer <= test_pattern;
             elsif run_enable = '1' then
                 -- TODO: Implement the CHIP-8 CPU, timers, and keypad handling.
                 -- Dxyn should XOR sprite bits into framebuffer and set VF when
