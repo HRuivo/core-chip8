@@ -1,0 +1,38 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity chip8_engine is
+    port (
+        clock      : in  std_logic;
+        reset      : in  std_logic;
+        run_enable : in  std_logic;
+        keypad     : in  std_logic_vector(15 downto 0);
+        pixel_x    : in  std_logic_vector(5 downto 0);
+        pixel_y    : in  std_logic_vector(4 downto 0);
+        pixel_on   : out std_logic
+    );
+end entity chip8_engine;
+
+architecture rtl of chip8_engine is
+    type framebuffer_t is array (0 to 31) of std_logic_vector(63 downto 0);
+    signal framebuffer : framebuffer_t := (others => (others => '0'));
+begin
+    -- The Verilog wrapper continuously queries the pixel being displayed.
+    pixel_on <= framebuffer(to_integer(unsigned(pixel_y)))
+                           (to_integer(unsigned(pixel_x)));
+
+    process (clock)
+    begin
+        if rising_edge(clock) then
+            if reset = '1' then
+                framebuffer <= (others => (others => '0'));
+            elsif run_enable = '1' then
+                -- TODO: Implement the CHIP-8 CPU, timers, and keypad handling.
+                -- Dxyn should XOR sprite bits into framebuffer and set VF when
+                -- an enabled pixel is erased.
+                null;
+            end if;
+        end if;
+    end process;
+end architecture rtl;

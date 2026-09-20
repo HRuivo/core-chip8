@@ -23,7 +23,6 @@ module chip8_core
     input  wire logic           host_mem_write,
     output logic [31:0]         host_mem_dataRead,
     input  wire logic [31:0]    host_mem_dataWrite,
-    input  wire logic [3:0]     host_mem_writeStrobe,
     output logic                host_mem_done,
     input  wire logic           host_commandHost_request,
     output logic                host_commandHost_busy,
@@ -110,6 +109,7 @@ module chip8_core
 
     always_ff @(posedge clk_10mhz) begin
         if (reset) begin
+            mem_busy          <= 1'b0;
             host_mem_dataRead  <= 32'h0;
             reg_command_host_0 <= 32'h0;
             reg_command_host_1 <= 32'h0;
@@ -128,7 +128,7 @@ module chip8_core
                     case (host_mem_address)
                         ADDR_REG0: reg_command_host_0 <= host_mem_dataWrite;
                         ADDR_REG1: reg_command_host_1 <= host_mem_dataWrite;
-                        ADDR_CONFIG_COLOR: reg_config_color <= host_mem_dataWrite;
+                        ADDR_CONFIG_COLOR: reg_config_color <= host_mem_dataWrite[23:0];
                         default: ;
                     endcase
                 end else begin
@@ -150,8 +150,10 @@ module chip8_core
 
                     if (cmd_opcode == CMD_GET_STATUS) begin
                         reg_command_host_0 <= reg_core_setup
-                            ? (reg_core_reset ? STATUS_CORE_HALT : STATUS_CORE_RUN)
-                            : (STATUS_SETUP);
+                            ? (reg_core_reset
+                                ? {29'd0, STATUS_CORE_HALT}
+                                : {29'd0, STATUS_CORE_RUN})
+                            : {29'd0, STATUS_SETUP};
                     end else if (cmd_opcode == CMD_SETUP_COMPLETE) begin
                         reg_core_setup <= 1'b1;
                     end else if (cmd_opcode == CMD_CORE_RUN) begin
@@ -180,8 +182,6 @@ module chip8_core
 
     logic [9:0] h_cnt = '0;
     logic [9:0] v_cnt = '0;
-    logic frame_tick;
-
     always_ff @(posedge clk_10mhz) begin
         if (reset || reg_core_reset) begin
             h_cnt <= '0;
@@ -203,46 +203,83 @@ module chip8_core
     assign video_vblank = (v_cnt >= V_ACTIVE);
     assign video_dataEnable = !video_hblank && !video_vblank;
 
+    // =========================================================================
+    // CHIP-8 engine
+    // =========================================================================
+    logic        chip8_reset;
+    logic        chip8_run_enable;
+    logic [15:0] chip8_keypad;
+    logic [5:0]  chip8_pixel_x;
+    logic [4:0]  chip8_pixel_y;
+    logic        chip8_pixel_on;
+
+    assign chip8_reset      = reset || reg_core_reset;
+    assign chip8_run_enable = !reg_core_reset && reg_core_focus;
+
+    // Default controller mapping. This can be made configurable per game later.
     always_comb begin
-        video_data_r = 5'h1F;
-        video_data_g = 5'h1F;
-        video_data_b = 5'h1F;
+        chip8_keypad = 16'h0000;
+        chip8_keypad[4'h2] = input_buttons_up;
+        chip8_keypad[4'h8] = input_buttons_down;
+        chip8_keypad[4'h4] = input_buttons_left;
+        chip8_keypad[4'h6] = input_buttons_right;
+        chip8_keypad[4'h5] = input_buttons_a;
+        chip8_keypad[4'h0] = input_buttons_b;
+        chip8_keypad[4'h1] = input_buttons_x;
+        chip8_keypad[4'h3] = input_buttons_y;
+        chip8_keypad[4'hA] = input_buttons_l;
+        chip8_keypad[4'hB] = input_buttons_r;
+        chip8_keypad[4'hC] = input_buttons_start;
+        chip8_keypad[4'hD] = input_buttons_select;
+    end
+
+    chip8_engine engine (
+        .clock      (clk_10mhz),
+        .reset      (chip8_reset),
+        .run_enable (chip8_run_enable),
+        .keypad     (chip8_keypad),
+        .pixel_x    (chip8_pixel_x),
+        .pixel_y    (chip8_pixel_y),
+        .pixel_on   (chip8_pixel_on)
+    );
+
+    // Scale 64x32 to 192x96 (3x) and center it in the 240x160 frame.
+    localparam CHIP8_SCALE = 3;
+    localparam CHIP8_X_OFF = 24;
+    localparam CHIP8_Y_OFF = 32;
+
+    logic chip8_screen_active;
+
+    always_comb begin
+        chip8_screen_active = 1'b0;
+        chip8_pixel_x       = 6'd0;
+        chip8_pixel_y       = 5'd0;
+
+        if ((h_cnt >= CHIP8_X_OFF) &&
+            (h_cnt < CHIP8_X_OFF + 64 * CHIP8_SCALE) &&
+            (v_cnt >= CHIP8_Y_OFF) &&
+            (v_cnt < CHIP8_Y_OFF + 32 * CHIP8_SCALE)) begin
+            chip8_screen_active = 1'b1;
+            chip8_pixel_x = 6'((h_cnt - CHIP8_X_OFF) / CHIP8_SCALE);
+            chip8_pixel_y = 5'((v_cnt - CHIP8_Y_OFF) / CHIP8_SCALE);
+        end
+    end
+
+    always_comb begin
+        video_data_r = 5'h00;
+        video_data_g = 5'h00;
+        video_data_b = 5'h00;
+
+        if (chip8_screen_active && chip8_pixel_on) begin
+            video_data_r = reg_config_color[23:19];
+            video_data_g = reg_config_color[15:11];
+            video_data_b = reg_config_color[7:3];
+        end
     end
 
     // =========================================================================
     // Audio output
     // =========================================================================
-    localparam CLOCKS_PER_SAMPLE = 208; // 10MHz / 208 = 48.077 kHz
-
-    // Frequency counters (Sample Rate / (2 * MAX))
-    localparam TONE_WALL   = 106; // ~226 Hz
-    localparam TONE_PADDLE = 53;  // ~452 Hz
-    localparam TONE_LOSE   = 133;  // ~180 Hz
-
-    // Durations in sample ticks
-    localparam DURATION_WALL    = 3072;  // 64 ms
-    localparam DURATION_PADDLE  = 3072;  // 64 ms
-    localparam DURATION_LOSE    = 12288; // 256 ms
-
-    logic [7:0]  sample_counter = '0;
-    logic        sample_tick;
-    logic [15:0] sound_counter  = '0;
-    logic [8:0]  tone_counter   = '0;
-    logic [8:0]  tone_max       = '0;
-    logic        square_wave    = 1'b0;
-
-    // 48 kHz tick generator
-    always_ff @(posedge clk_10mhz) begin
-        if (reset || sample_counter == CLOCKS_PER_SAMPLE - 1) begin
-            sample_counter <= '0;
-            sample_tick    <= 1'b1;
-        end else begin
-            sample_counter <= sample_counter + 1'b1;
-            sample_tick    <= 1'b0;
-        end
-    end
-
-    // 16-bit signed output
-    assign audio_left = 16'sh2000;
-    assign audio_right = audio_left;
+    assign audio_left  = 16'h0000;
+    assign audio_right = 16'h0000;
 endmodule
