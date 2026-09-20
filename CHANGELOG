@@ -1,0 +1,22 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on Keep a Changelog.
+
+## [Unreleased]
+
+### Added
+
+- Game Bub host communication and core lifecycle handling.
+- SystemVerilog wrapper for video, input, audio, and clock interfaces.
+- VHDL CHIP-8 engine integration.
+- 64 × 32 monochrome framebuffer.
+- Scaled and centered framebuffer output.
+- Framebuffer test pattern for hardware verification.
+- CERN-OHL-W-2.0 license.
+
+### Changed
+
+- Replaced the original Pong example with the CHIP-8 core structure.
+- Updated project metadata and build configuration for CHIP-8.
