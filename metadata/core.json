@@ -1,10 +1,10 @@
 {
-	"metadata": {
-		"id": "Demo.DemoCore",
-		"name": "Demo Core",
-		"author": "Demo"
-	},
-	"bitstreams": [
-		{"target": "gamebub_rev4", "filename": "DemoCore-gamebub_rev4.bit"}
-	]
+    "metadata": {
+        "id": "Hurus.Chip8Core",
+        "name": "CHIP-8",
+        "author": "Hurus"
+    },
+    "bitstreams": [
+        { "target": "gamebub_rev4", "filename": "Chip8Core-gamebub_rev4.bit" }
+    ]
 }

@@ -2,7 +2,7 @@ import chisel3._
 import net.gamebub.framework.Core
 import net.gamebub.framework.interface._
 
-class DemoCore extends Module with Core {
+class Chip8Core extends Module with Core {
     val mmcmVcoHz = 800_000_000
     val (displayClockMin, _) = ClocksV0.getClockDisplayHz(1.0 / 60.0)
     val displayDivider = (mmcmVcoHz.toFloat / displayClockMin).floor.toInt
@@ -27,7 +27,7 @@ class DemoCore extends Module with Core {
         val input = new InputV0()
     })
 
-    bindExtModule("demo_core", io, Map(
+    bindExtModule("chip8_core", io, Map(
         "DISPLAY_DIVIDER" -> displayDivider,
     ))
 }
