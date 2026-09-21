@@ -2,6 +2,9 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
+library work;
+use work.chip8_pkg.all;
+
 entity chip8_engine is
     port (
         clock      : in  std_logic;
@@ -15,21 +18,12 @@ entity chip8_engine is
 end entity chip8_engine;
 
 architecture rtl of chip8_engine is
-    type framebuffer_t is array (0 to 31) of std_logic_vector(63 downto 0);
     signal framebuffer : framebuffer_t := (others => (others => '0'));
 
-    type state_t is (RST, FETCH_HI, FETCH_LO, DECODE, EXECUTE);
-    signal state : state_t := RST;
-
-    signal PC : UNSIGNED(11 downto 0) := (others => '0');
-    signal IR : STD_LOGIC_VECTOR(15 downto 0) := (others => '0');
-
-    signal op : STD_LOGIC_VECTOR(3 downto 0);
-    signal x, y : integer range 3 downto 0;
-
-    type register_file_t is array(0 to 15) of UNSIGNED(7 downto 0);
-    signal V : register_file_t := (others => (others => '0'));
-    signal I : UNSIGNED(15 downto 0) := (others => '0');
+    signal mem_addr : address_t;
+    signal mem_wdata : byte_t;
+    signal mem_rdata : byte_t;
+    signal mem_we : std_logic;
 begin
     -- The Verilog wrapper continuously queries the pixel being displayed.
     pixel_on <= framebuffer(to_integer(unsigned(pixel_y)))
@@ -37,16 +31,9 @@ begin
 
     process (clock)
         variable test_pattern : framebuffer_t;
-
-        variable pc_tmp : UNSIGNED(11 downto 0) := (others => '0');
-        variable ir_tmp : STD_LOGIC_VECTOR(15 downto 0) := (others => '0');
-        variable sum : UNSIGNED(8 downto 0);
     begin
         if rising_edge(clock) then
             if reset = '1' then
-                state <= RST;
-                PC <= (others => '0');
-
                 test_pattern := (others => (others => '0'));
 
                 test_pattern(0) := (others => '1');
@@ -61,27 +48,6 @@ begin
 
                 framebuffer <= test_pattern;
             elsif run_enable = '1' then
-                case state is
-                    when RST =>
-                        pc_tmp := TO_UNSIGNED(16#200#, PC'length);
-                        PC <= pc_tmp;
-                        state <= FETCH_HI;
-
-                    when FETCH_HI =>
-                        pc_tmp := PC + 1;
-                        PC <= pc_tmp;
-                        state <= FETCH_LO;
-
-                    when DECODE =>
-                        state <= EXECUTE;
-
-                    when EXECUTE =>
-                        state <= FETCH_HI;
-
-                    when others =>
-                        null;
-                end case;
-
                 -- TODO: Implement the CHIP-8 CPU, timers, and keypad handling.
                 -- Dxyn should XOR sprite bits into framebuffer and set VF when
                 -- an enabled pixel is erased.
@@ -89,4 +55,22 @@ begin
             end if;
         end if;
     end process;
+
+    mem : entity work.chip8_memory
+    port map (
+        clock => clock,
+        address => mem_addr,
+        write_enable => mem_we,
+        write_data => mem_wdata,
+        read_data => mem_rdata
+    );
+
+    cpu : entity work.chip8_cpu
+    port map (
+        clk => clock,
+        rst => run_enable,
+        mem_data => mem_rdata,
+        mem_addr => mem_addr
+    );
+
 end architecture rtl;

@@ -1,7 +1,7 @@
 [
     {
         "label": "Check VHDL",
-        "command": "mkdir -p /tmp/chip8core-vhdl-check && cd /tmp/chip8core-vhdl-check && /home/hurus/tools/2025.2/Vivado/bin/xvhdl --2008 \"$ZED_WORKTREE_ROOT/rtl/chip8_pkg.vhdl\" \"$ZED_WORKTREE_ROOT/rtl/chip8_memory.vhdl\" \"$ZED_WORKTREE_ROOT/rtl/chip8_engine.vhdl\"",
+        "command": "mkdir -p /tmp/chip8core-vhdl-check && cd /tmp/chip8core-vhdl-check && /home/hurus/tools/2025.2/Vivado/bin/xvhdl --2008 \"$ZED_WORKTREE_ROOT/rtl/chip8_pkg.vhdl\" && find \"$ZED_WORKTREE_ROOT/rtl\" -maxdepth 1 -type f -name '*.vhdl' ! -name 'chip8_pkg.vhdl' ! -name 'chip8_engine.vhdl' -print0 | sort -z |xargs -0 -r /home/hurus/tools/2025.2/Vivado/bin/xvhdl --2008 && /home/hurus/tools/2025.2/Vivado/bin/xvhdl --2008 \"$ZED_WORKTREE_ROOT/rtl/chip8_engine.vhdl\"",
         "cwd": "$ZED_WORKTREE_ROOT",
         "save": "all",
         "use_new_terminal": false,
