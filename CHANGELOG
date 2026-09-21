@@ -6,6 +6,36 @@ The format is based on Keep a Changelog.
 
 ## [Unreleased]
 
+# Changelog
+
+  All notable changes to this project will be documented in this file.
+
+  The format is based on Keep a Changelog.
+
+  ## [Unreleased]
+
+  ### Added
+
+  - Shared VHDL package containing CHIP-8 constants, types, and opcode helpers.
+  - CHIP-8 memory module with 4 KiB of addressable memory.
+  - Zed tasks for VHDL checking and complete Game Bub builds.
+
+  ### Changed
+
+  - Organized the VHDL implementation into separate engine and memory modules.
+
+  ### Fixed
+
+  - Corrected VHDL source ordering so packages are analyzed before dependent modules.
+
+  ## [0.0.2] - 2026-09-21
+
+### Added
+
+  - Shared VHDL package containing CHIP-8 constants, types, and opcode helpers.
+  - CHIP-8 memory module with 4 KiB of addressable memory.
+  - Zed tasks for VHDL checking and complete Game Bub builds.
+
 ### Added
 
 - Game Bub host communication and core lifecycle handling.
@@ -20,3 +50,5 @@ The format is based on Keep a Changelog.
 
 - Replaced the original Pong example with the CHIP-8 core structure.
 - Updated project metadata and build configuration for CHIP-8.
+
+## [0.0.1] - 2026-09-20
