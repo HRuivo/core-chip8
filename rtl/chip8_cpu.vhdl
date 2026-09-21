@@ -18,60 +18,72 @@ end entity chip8_cpu;
 architecture rtl of chip8_cpu is
     type state_t is (
         RESET,
-        FETCH_HI,
-        FETCH_LO,
-        DECODE,
-        EXECUTE
+        --
+        FETCH_HIGH_ADDRESS,
+        FETCH_HIGH_DATA,
+        FETCH_LOW_ADDRESS,
+        FETCH_LOW_DATA,
+        --
+        EXECUTE,
+        --
+        DRAW_ADDRESS,
+        DRAW_DATA,
+        DRAW_ROW,
+        --
+        HALT_STATE
     );
     signal state : state_t := RESET;
 
-    signal PC : UNSIGNED(11 downto 0) := (others => '0');
+    signal pc : UNSIGNED(11 downto 0) := (others => '0');
     signal IR : STD_LOGIC_VECTOR(15 downto 0) := (others => '0');
 
-    signal op : STD_LOGIC_VECTOR(3 downto 0);
+    signal index : unsigned(11 downto 0);
+
+    signal opcode : opcode_t := (others => '0');
     signal x, y : integer range 3 downto 0;
 
-    type register_file_t is array(0 to 15) of UNSIGNED(7 downto 0);
-    signal V : register_file_t := (others => (others => '0'));
+    signal v : register_file_t := (others => (others => '0'));
     signal I : UNSIGNED(15 downto 0) := (others => '0');
 
     signal clear_display : std_logic := '0';
 
 begin
 
+    mem_addr <= address_t(pc);
+
     process (clk)
-        variable pc_tmp : UNSIGNED(11 downto 0) := (others => '0');
-        variable ir_tmp : STD_LOGIC_VECTOR(15 downto 0) := (others => '0');
-        variable sum : UNSIGNED(8 downto 0);
     begin
         if rising_edge(clk) then
             if rst = '1' then
                 state <= RESET;
-                PC <= (others => '0');
-                mem_addr <= (others => '0');
+                pc <= to_unsigned(CHIP8_PROGRAM_START, pc'length);
+                opcode <= (others => '0');
             else
-                clear_display <= '0';
-
                 case state is
                     when RESET =>
-                        pc_tmp := to_unsigned(16#200#, PC'length);
-                        PC <= pc_tmp;
-                        mem_addr <= address_t(pc_tmp);
-                        state <= FETCH_HI;
+                        state <= FETCH_HIGH_ADDRESS;
 
-                    when FETCH_HI =>
-                        pc_tmp := PC + 1;
-                        PC <= pc_tmp;
-                        state <= FETCH_LO;
+                    when FETCH_HIGH_ADDRESS =>
+                        state <= FETCH_HIGH_DATA;
 
-                    when DECODE =>
+                    when FETCH_HIGH_DATA =>
+                        opcode(15 downto 8) <= mem_data;
+                        pc <= pc + 1;
+                        state <= FETCH_LOW_ADDRESS;
+
+                    when FETCH_LOW_ADDRESS =>
+                        state <= FETCH_LOW_DATA;
+
+                    when FETCH_LOW_DATA =>
+                        opcode(7 downto 0) <= mem_data;
+                        pc <= pc + 1;
                         state <= EXECUTE;
 
                     when EXECUTE =>
-                        state <= FETCH_HI;
+                        state <= FETCH_HIGH_ADDRESS;
 
                     when others =>
-                        null;
+                        state <= RESET;
                 end case;
             end if;
         end if;

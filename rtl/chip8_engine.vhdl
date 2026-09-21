@@ -24,6 +24,8 @@ architecture rtl of chip8_engine is
     signal mem_wdata : byte_t;
     signal mem_rdata : byte_t;
     signal mem_we : std_logic;
+
+    signal cpu_reset : std_logic;
 begin
     -- The Verilog wrapper continuously queries the pixel being displayed.
     pixel_on <= framebuffer(to_integer(unsigned(pixel_y)))
@@ -65,10 +67,12 @@ begin
         read_data => mem_rdata
     );
 
+    cpu_reset <= reset or not run_enable;
+
     cpu : entity work.chip8_cpu
     port map (
         clk => clock,
-        rst => run_enable,
+        rst => cpu_reset,
         mem_data => mem_rdata,
         mem_addr => mem_addr
     );
