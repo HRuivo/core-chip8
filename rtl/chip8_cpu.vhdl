@@ -35,17 +35,7 @@ architecture rtl of chip8_cpu is
     signal state : state_t := RESET;
 
     signal pc : UNSIGNED(11 downto 0) := (others => '0');
-    signal IR : STD_LOGIC_VECTOR(15 downto 0) := (others => '0');
-
-    signal index : unsigned(11 downto 0);
-
     signal opcode : opcode_t := (others => '0');
-    signal x, y : integer range 3 downto 0;
-
-    signal v : register_file_t := (others => (others => '0'));
-    signal I : UNSIGNED(15 downto 0) := (others => '0');
-
-    signal clear_display : std_logic := '0';
 
 begin
 

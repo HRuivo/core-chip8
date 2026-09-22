@@ -21,9 +21,9 @@ architecture rtl of chip8_engine is
     signal framebuffer : framebuffer_t := (others => (others => '0'));
 
     signal mem_addr : address_t;
-    signal mem_wdata : byte_t;
+    signal mem_wdata : byte_t := (others => '0');
     signal mem_rdata : byte_t;
-    signal mem_we : std_logic;
+    signal mem_we : std_logic := '0';
 
     signal cpu_reset : std_logic;
 begin
