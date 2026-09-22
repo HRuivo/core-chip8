@@ -99,7 +99,8 @@ begin
         display_x => display_x,
         display_y => display_y,
         display_sprite => display_sprite,
-        display_collision => display_collision
+        display_collision => display_collision,
+        keypad => keypad
     );
 
 end architecture rtl;

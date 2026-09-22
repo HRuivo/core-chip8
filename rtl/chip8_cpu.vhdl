@@ -18,7 +18,9 @@ entity chip8_cpu is
         display_x         : out std_logic_vector(5 downto 0);
         display_y         : out std_logic_vector(4 downto 0);
         display_sprite    : out byte_t;
-        display_collision : in  std_logic
+        display_collision : in  std_logic;
+
+        keypad : in std_logic_vector(15 downto 0)
     );
 end entity chip8_cpu;
 
@@ -60,6 +62,8 @@ architecture rtl of chip8_cpu is
     signal stack : stack_t := (others => (others => '0'));
     signal sp : natural range 0 to CHIP8_STACK_DEPTH := 0;
 
+    signal random_lfsr : std_logic_vector(15 downto 0) := x"ACE1";
+
 begin
 
     mem_addr <= std_logic_vector(
@@ -96,6 +100,7 @@ begin
                 index_register <= (others => '0');
                 stack <= (others => (others => '0'));
                 sp <= 0;
+                random_lfsr <= x"ACE1";
                 draw_x <= (others => '0');
                 draw_y <= (others => '0');
                 draw_height <= 0;
@@ -255,7 +260,15 @@ begin
                                 PC <= unsigned(v(0)) + unsigned(nnn);
 
                             when x"C" =>
-                                null;
+                                v(x) <= random_lfsr(7 downto 0) and nn;
+
+                                random_lfsr <= random_lfsr(14 downto 0) &
+                                    (
+                                        random_lfsr(15) xor
+                                        random_lfsr(13) xor
+                                        random_lfsr(12) xor
+                                        random_lfsr(10)
+                                    );
 
                             when x"D" =>
                                 draw_x <= unsigned(v(x)(5 downto 0));
@@ -268,6 +281,26 @@ begin
                                 if n /= x"0" then
                                     state <= DRAW_ADDRESS;
                                 end if;
+
+                            when x"E" =>
+                                case nn is
+                                    when x"9E" =>
+                                        if unsigned(v(x)) < 16 then
+                                            if keypad(to_integer(unsigned(v(x)))) = '1' then
+                                                pc <= pc + 2;
+                                            end if;
+                                        end if;
+
+                                    when x"A1" =>
+                                        if unsigned(v(x)) >= 16 then
+                                            pc <= pc + 2;
+                                        elsif keypad(to_integer(unsigned(v(x)))) = '0' then
+                                            pc <= pc + 2;
+                                        end if;
+
+                                    when others =>
+                                        null;
+                                end case;
 
                             when x"F" =>
                                 case nn is

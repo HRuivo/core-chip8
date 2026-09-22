@@ -34,7 +34,7 @@ architecture rtl of chip8_memory is
         result(16#207#) := x"0C";
 
         result(16#208#) := x"D0";
-        result(16#209#) := x"15";
+        result(16#209#) := x"18";
 
         result(16#20A#) := x"12";
         result(16#20B#) := x"0A";
@@ -45,6 +45,16 @@ architecture rtl of chip8_memory is
         result(16#20E#) := x"90";
         result(16#20F#) := x"90";
         result(16#210#) := x"F0";
+
+        -- Smile
+        result(16#20C#) := x"3C";
+        result(16#20D#) := x"42";
+        result(16#20E#) := x"A5";
+        result(16#20F#) := x"81";
+        result(16#210#) := x"A5";
+        result(16#211#) := x"99";
+        result(16#212#) := x"42";
+        result(16#213#) := x"3C";
 
         return result;
     end function;
