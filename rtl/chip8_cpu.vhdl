@@ -13,6 +13,9 @@ entity chip8_cpu is
         mem_data : in byte_t;
         mem_addr : out address_t;
 
+        mem_write_enable : out std_logic;
+        mem_write_data : out byte_t;
+
         display_clear     : out std_logic;
         display_draw      : out std_logic;
         display_x         : out std_logic_vector(5 downto 0);
@@ -40,7 +43,9 @@ architecture rtl of chip8_cpu is
         DRAW_ROW,
         DRAW_RESULT,
         --
-        HALT_STATE
+        HALT_STATE,
+        --
+        WAIT_FOR_KEY
     );
     signal state : state_t := RESET;
 
@@ -48,6 +53,7 @@ architecture rtl of chip8_cpu is
     signal opcode : opcode_t := (others => '0');
     signal v : register_file_t;
     signal index_register : address_t := (others => '0');
+    signal key_register : register_index_t := 0;
 
     signal clear_display : std_logic := '0';
 
@@ -63,6 +69,8 @@ architecture rtl of chip8_cpu is
     signal sp : natural range 0 to CHIP8_STACK_DEPTH := 0;
 
     signal random_lfsr : std_logic_vector(15 downto 0) := x"ACE1";
+
+    signal timer_counter : natural range 0 to TIMER_DIVIDER - 1 := 0;
 
 begin
 
@@ -91,6 +99,8 @@ begin
 
         variable sum : unsigned(8 downto 0);
 
+        variable index_sum : unsigned(12 downto 0);
+
     begin
         if rising_edge(clk) then
             if rst = '1' then
@@ -98,16 +108,37 @@ begin
                 pc <= to_unsigned(CHIP8_PROGRAM_START, pc'length);
                 opcode <= (others => '0');
                 index_register <= (others => '0');
+
                 stack <= (others => (others => '0'));
                 sp <= 0;
+
                 random_lfsr <= x"ACE1";
+
                 draw_x <= (others => '0');
                 draw_y <= (others => '0');
                 draw_height <= 0;
                 draw_row_index <= 0;
                 draw_sprite <= (others => '0');
+
+                dt <= (others => '0');
+                st <= (others => '0');
+                timer_counter <= 0;
             else
                 clear_display <= '0';
+
+                if timer_counter = TIMER_DIVIDER - 1 then
+                    timer_counter <= 0;
+
+                    if unsigned(dt) > 0 then
+                        dt <= std_logic_vector(unsigned(dt) - 1);
+                    end if;
+
+                    if unsigned(st) > 0 then
+                        st <= std_logic_vector(unsigned(st) - 1);
+                    end if;
+                else
+                    timer_counter <= timer_counter + 1;
+                end if;
 
                 case state is
                     when RESET =>
@@ -308,7 +339,8 @@ begin
                                         v(x) <= dt;
 
                                     when x"0A" =>
-                                        null;
+                                        key_register <= x;
+                                        state <= WAIT_FOR_KEY;
 
                                     when x"15" =>
                                         dt <= v(x);
@@ -317,10 +349,20 @@ begin
                                         st <= v(x);
 
                                     when x"1E" =>
-                                        null;
+                                        index_sum :=
+                                            ('0' & unsigned(index_register)) +
+                                            resize(unsigned(v(x)), index_sum'length);
+
+                                        index_register <= std_logic_vector(index_sum(11 downto 0));
 
                                     when x"29" =>
-                                    index_register <= v(x) * 5;
+                                        index_register <= std_logic_vector(
+                                            to_unsigned(
+                                                CHIP8_FONT_START +
+                                                (to_integer(unsigned(v(x)(3 downto 0))) * 5),
+                                                address_t'length
+                                            )
+                                        );
 
                                     when others =>
                                         null;
@@ -357,6 +399,57 @@ begin
 
                     when HALT_STATE =>
                         state <= HALT_STATE;
+
+                    when WAIT_FOR_KEY =>
+                        if keypad(0) = '1' then
+                            v(key_register) <= x"00";
+                            state <= FETCH_HIGH_ADDRESS;
+                        elsif keypad(1) = '1' then
+                            v(key_register) <= x"01";
+                            state <= FETCH_HIGH_ADDRESS;
+                        elsif keypad(2) = '1' then
+                            v(key_register) <= x"02";
+                            state <= FETCH_HIGH_ADDRESS;
+                        elsif keypad(3) = '1' then
+                            v(key_register) <= x"03";
+                            state <= FETCH_HIGH_ADDRESS;
+                        elsif keypad(4) = '1' then
+                            v(key_register) <= x"04";
+                            state <= FETCH_HIGH_ADDRESS;
+                        elsif keypad(5) = '1' then
+                            v(key_register) <= x"05";
+                            state <= FETCH_HIGH_ADDRESS;
+                        elsif keypad(6) = '1' then
+                            v(key_register) <= x"06";
+                            state <= FETCH_HIGH_ADDRESS;
+                        elsif keypad(7) = '1' then
+                            v(key_register) <= x"07";
+                            state <= FETCH_HIGH_ADDRESS;
+                        elsif keypad(8) = '1' then
+                            v(key_register) <= x"08";
+                            state <= FETCH_HIGH_ADDRESS;
+                        elsif keypad(9) = '1' then
+                            v(key_register) <= x"09";
+                            state <= FETCH_HIGH_ADDRESS;
+                        elsif keypad(10) = '1' then
+                            v(key_register) <= x"0A";
+                            state <= FETCH_HIGH_ADDRESS;
+                        elsif keypad(11) = '1' then
+                            v(key_register) <= x"0B";
+                            state <= FETCH_HIGH_ADDRESS;
+                        elsif keypad(12) = '1' then
+                            v(key_register) <= x"0C";
+                            state <= FETCH_HIGH_ADDRESS;
+                        elsif keypad(13) = '1' then
+                            v(key_register) <= x"0D";
+                            state <= FETCH_HIGH_ADDRESS;
+                        elsif keypad(14) = '1' then
+                            v(key_register) <= x"0E";
+                            state <= FETCH_HIGH_ADDRESS;
+                        elsif keypad(15) = '1' then
+                            v(key_register) <= x"0F";
+                            state <= FETCH_HIGH_ADDRESS;
+                        end if;
 
                     when others =>
                         state <= RESET;

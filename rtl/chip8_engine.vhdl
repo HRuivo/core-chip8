@@ -94,6 +94,8 @@ begin
         rst => cpu_reset,
         mem_data => mem_rdata,
         mem_addr => mem_addr,
+        mem_write_enable => mem_we,
+        mem_write_data => mem_wdata,
         display_clear => display_clear,
         display_draw => display_draw,
         display_x => display_x,

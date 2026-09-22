@@ -13,6 +13,8 @@ package chip8_pkg is
     constant CHIP8_REGISTER_COUNT   : natural := 16;
     constant CHIP8_STACK_DEPTH      : natural := 16;
 
+    constant TIMER_DIVIDER : natural := 166667;
+
     subtype nibble_t is std_logic_vector(3 downto 0);
     subtype byte_t is std_logic_vector(7 downto 0);
     subtype address_t is std_logic_vector(11 downto 0);
