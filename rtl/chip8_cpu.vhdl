@@ -55,6 +55,8 @@ architecture rtl of chip8_cpu is
     signal draw_row_index : natural range 0 to 15 := 0;
     signal draw_sprite : byte_t := (others => '0');
 
+    signal dt, st : byte_t := (others => '0');
+
 begin
 
     mem_addr <= std_logic_vector(
@@ -155,8 +157,10 @@ begin
                                     end if;
 
                             when x"5" =>
-                                if v(x) = v(y) then
-                                    PC <= PC + 2;
+                                if n = x"0" then
+                                    if v(x) = v(y) then
+                                        PC <= PC + 2;
+                                    end if;
                                 end if;
 
                             when x"6" =>
@@ -189,19 +193,53 @@ begin
                                         end if;
 
                                     when x"5" =>
-                                        if v(x) > v(y) then
+                                        if unsigned(v(x)) >= unsigned(v(y)) then
                                             v(15) <= x"01";
                                         else
                                             v(15) <= x"00";
                                         end if;
+
                                         v(x) <= std_logic_vector(unsigned(v(x)) - unsigned(v(y)));
+
+                                    when x"6" =>
+                                        -- VF receives the bit shifted out.
+                                        v(15) <= "0000000" & v(x)(0);
+                                        v(x) <= '0' & v(x)(7 downto 1);
+
+                                    when x"7" =>
+                                        -- VX := VY - VX
+                                        if unsigned(v(y)) >= unsigned(v(x)) then
+                                            v(15) <= x"01";
+                                        else
+                                            v(15) <= x"00";
+                                        end if;
+
+                                        v(x) <= std_logic_vector(unsigned(v(y)) - unsigned(v(x)));
+
+                                    when x"E" =>
+                                        -- VF receives the bit shifted out.
+                                        v(15) <= "0000000" & v(x)(7);
+                                        v(x)  <= v(x)(6 downto 0) & '0';
 
                                     when others =>
                                         null;
                                 end case;
 
+                            when x"9" =>
+                                if n = x"0" then
+                                    if v(x) /= v(y) then
+                                        PC <= PC + 2;
+                                    end if;
+                                end if;
+
                             when x"A" =>
                                 index_register <= nnn;
+
+                            when x"B" =>
+                                PC <= unsigned(v(0)) + unsigned(nnn);
+
+                            when x"C" =>
+                                null;
 
                             when x"D" =>
                                 draw_x <= unsigned(v(x)(5 downto 0));
@@ -214,6 +252,30 @@ begin
                                 if n /= x"0" then
                                     state <= DRAW_ADDRESS;
                                 end if;
+
+                            when x"F" =>
+                                case nn is
+                                    when x"07" =>
+                                        v(x) <= dt;
+
+                                    when x"0A" =>
+                                        null;
+
+                                    when x"15" =>
+                                        dt <= v(x);
+
+                                    when x"18" =>
+                                        st <= v(x);
+
+                                    when x"1E" =>
+                                        null;
+
+                                    when x"29" =>
+                                    index_register <= v(x) * 5;
+
+                                    when others =>
+                                        null;
+                                end case;
 
                             when others =>
                                 null;
