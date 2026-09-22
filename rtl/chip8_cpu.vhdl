@@ -57,6 +57,9 @@ architecture rtl of chip8_cpu is
 
     signal dt, st : byte_t := (others => '0');
 
+    signal stack : stack_t := (others => (others => '0'));
+    signal sp : natural range 0 to CHIP8_STACK_DEPTH := 0;
+
 begin
 
     mem_addr <= std_logic_vector(
@@ -91,6 +94,8 @@ begin
                 pc <= to_unsigned(CHIP8_PROGRAM_START, pc'length);
                 opcode <= (others => '0');
                 index_register <= (others => '0');
+                stack <= (others => (others => '0'));
+                sp <= 0;
                 draw_x <= (others => '0');
                 draw_y <= (others => '0');
                 draw_height <= 0;
@@ -137,14 +142,25 @@ begin
                                 if opcode = x"00E0" then
                                     clear_display <= '1';
                                 elsif opcode = x"00EE" then
-
+                                    if sp > 0 then
+                                        sp <= sp - 1;
+                                        pc <= unsigned(stack(sp - 1));
+                                    else
+                                        state <= HALT_STATE;
+                                    end if;
                                 end if;
 
                             when x"1" =>
                                 pc <= unsigned(nnn);
 
                             when x"2" =>
-                                null;
+                            if sp < CHIP8_STACK_DEPTH then
+                                stack(sp) <= std_logic_vector(pc);
+                                sp <= sp + 1;
+                                pc <= unsigned(nnn);
+                            else
+                                state <= HALT_STATE;
+                            end if;
 
                             when x"3" =>
                                 if v(x) = nn then
@@ -305,6 +321,9 @@ begin
                         else
                             state <= FETCH_HIGH_ADDRESS;
                         end if;
+
+                    when HALT_STATE =>
+                        state <= HALT_STATE;
 
                     when others =>
                         state <= RESET;
