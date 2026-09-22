@@ -26,34 +26,53 @@ architecture rtl of chip8_engine is
     signal mem_we : std_logic := '0';
 
     signal cpu_reset : std_logic;
+
+    signal display_clear : std_logic;
+    signal display_draw : std_logic;
+    signal display_x : std_logic_vector(5 downto 0);
+    signal display_y : std_logic_vector(4 downto 0);
+    signal display_sprite : byte_t;
+    signal display_collision : std_logic := '0';
 begin
     -- The Verilog wrapper continuously queries the pixel being displayed.
     pixel_on <= framebuffer(to_integer(unsigned(pixel_y)))
                            (to_integer(unsigned(pixel_x)));
 
     process (clock)
-        variable test_pattern : framebuffer_t;
+        variable row_pixels : framebuffer_row_t;
+        variable pixel_index : natural range 0 to CHIP8_SCREEN_WIDTH - 1;
+        variable collision : std_logic;
     begin
         if rising_edge(clock) then
             if reset = '1' then
-                test_pattern := (others => (others => '0'));
-
-                test_pattern(0) := (others => '1');
-                test_pattern(31) := (others => '1');
-
-                for y in 0 to 31 loop
-                    test_pattern(y)(0) := '1';
-                    test_pattern(y)(63) := '1';
-                    test_pattern(y)(2 * y) := '1';
-                    test_pattern(y)(63 - 2*y) := '1';
-                end loop;
-
-                framebuffer <= test_pattern;
+                framebuffer <= (others => (others => '0'));
+                display_collision <= '0';
             elsif run_enable = '1' then
-                -- TODO: Implement the CHIP-8 CPU, timers, and keypad handling.
-                -- Dxyn should XOR sprite bits into framebuffer and set VF when
-                -- an enabled pixel is erased.
-                null;
+                display_collision <= '0';
+
+                if display_clear = '1' then
+                    framebuffer <= (others => (others => '0'));
+                elsif display_draw = '1' then
+                    row_pixels := framebuffer(to_integer(unsigned(display_y)));
+                    collision := '0';
+
+                    for bit_index in 0 to 7 loop
+                        if display_sprite(7 - bit_index) = '1' then
+                            pixel_index := (
+                                to_integer(unsigned(display_x)) + bit_index
+                            ) mod CHIP8_SCREEN_WIDTH;
+
+                            if row_pixels(pixel_index) = '1' then
+                                collision := '1';
+                            end if;
+
+                            row_pixels(pixel_index) := not row_pixels(pixel_index);
+                        end if;
+                    end loop;
+
+                    framebuffer(to_integer(unsigned(display_y))) <= row_pixels;
+                    display_collision <= collision;
+                end if;
             end if;
         end if;
     end process;
@@ -74,7 +93,13 @@ begin
         clk => clock,
         rst => cpu_reset,
         mem_data => mem_rdata,
-        mem_addr => mem_addr
+        mem_addr => mem_addr,
+        display_clear => display_clear,
+        display_draw => display_draw,
+        display_x => display_x,
+        display_y => display_y,
+        display_sprite => display_sprite,
+        display_collision => display_collision
     );
 
 end architecture rtl;
