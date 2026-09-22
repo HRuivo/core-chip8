@@ -134,10 +134,30 @@ begin
                             when x"0" =>
                                 if opcode = x"00E0" then
                                     clear_display <= '1';
+                                elsif opcode = x"00EE" then
+
                                 end if;
 
                             when x"1" =>
                                 pc <= unsigned(nnn);
+
+                            when x"2" =>
+                                null;
+
+                            when x"3" =>
+                                if v(x) = nn then
+                                    PC <= PC + 2;
+                                end if;
+
+                            when x"4" =>
+                                if v(x) /= nn then
+                                    PC <= PC + 2;
+                                    end if;
+
+                            when x"5" =>
+                                if v(x) = v(y) then
+                                    PC <= PC + 2;
+                                end if;
 
                             when x"6" =>
                                 v(x) <= nn;
