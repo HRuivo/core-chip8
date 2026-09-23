@@ -14,6 +14,8 @@ package chip8_pkg is
     constant CHIP8_STACK_DEPTH      : natural := 16;
 
     constant TIMER_DIVIDER : natural := 166667;
+    -- 10 MHz system clock / 14286 ~= 700 CHIP-8 instructions per second.
+    constant INSTRUCTION_DIVIDER : natural := 14286;
 
     subtype nibble_t is std_logic_vector(3 downto 0);
     subtype byte_t is std_logic_vector(7 downto 0);

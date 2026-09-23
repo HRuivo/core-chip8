@@ -2,7 +2,7 @@
 
 An FPGA CHIP-8 core for the Game Bub handheld.
 
-The project currently contains a working Game Bub wrapper and a VHDL framebuffer test pattern. The CHIP-8 CPU, timers, instructions, and ROM loading are not implemented yet.
+The project contains a Game Bub wrapper, a VHDL CHIP-8 CPU and framebuffer, 60 Hz delay and sound timers, and ROM loading. Instructions start at about 700 per second from the 10 MHz system clock; the instruction rate is set by `INSTRUCTION_DIVIDER` in `rtl/chip8_pkg.vhdl`.
 
 ## Structure
 

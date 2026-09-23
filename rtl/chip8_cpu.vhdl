@@ -80,6 +80,7 @@ architecture rtl of chip8_cpu is
     signal random_lfsr : std_logic_vector(15 downto 0) := x"ACE1";
 
     signal timer_counter : natural range 0 to TIMER_DIVIDER - 1 := 0;
+    signal instruction_counter : natural range 0 to INSTRUCTION_DIVIDER - 1 := 0;
 
 begin
 
@@ -146,8 +147,17 @@ begin
                 dt <= (others => '0');
                 st <= (others => '0');
                 timer_counter <= 0;
+                instruction_counter <= 0;
             else
                 clear_display <= '0';
+
+                -- Pace opcode starts independently of the 60 Hz timers. The
+                -- remaining fetch and execution states run at the system clock.
+                if instruction_counter = INSTRUCTION_DIVIDER - 1 then
+                    instruction_counter <= 0;
+                else
+                    instruction_counter <= instruction_counter + 1;
+                end if;
 
                 if timer_counter = TIMER_DIVIDER - 1 then
                     timer_counter <= 0;
@@ -169,7 +179,9 @@ begin
                         state <= FETCH_HIGH_ADDRESS;
 
                     when FETCH_HIGH_ADDRESS =>
-                        state <= FETCH_HIGH_DATA;
+                        if instruction_counter = INSTRUCTION_DIVIDER - 1 then
+                            state <= FETCH_HIGH_DATA;
+                        end if;
 
                     when FETCH_HIGH_DATA =>
                         opcode(15 downto 8) <= mem_data;
