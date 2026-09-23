@@ -20,50 +20,31 @@ architecture rtl of chip8_memory is
     function initialize_memory return memory_t is
         variable result : memory_t := (others => (others => '0'));
     begin
-        -- Program
-        result(16#200#) := x"00";
-        result(16#201#) := x"E0";
-
-        result(16#202#) := x"60";
-        result(16#203#) := x"08";
-
-        result(16#204#) := x"61";
-        result(16#205#) := x"08";
-
-        result(16#206#) := x"A2";
-        result(16#207#) := x"0C";
-
-        result(16#208#) := x"D0";
-        result(16#209#) := x"18";
-
-        result(16#20A#) := x"12";
-        result(16#20B#) := x"0A";
-
-        -- Sprite
-        result(16#20C#) := x"F0";
-        result(16#20D#) := x"90";
-        result(16#20E#) := x"90";
-        result(16#20F#) := x"90";
-        result(16#210#) := x"F0";
-
-        -- Smile
-        result(16#20C#) := x"3C";
-        result(16#20D#) := x"42";
-        result(16#20E#) := x"A5";
-        result(16#20F#) := x"81";
-        result(16#210#) := x"A5";
-        result(16#211#) := x"99";
-        result(16#212#) := x"42";
-        result(16#213#) := x"3C";
+        -- Standard CHIP-8 font, hexadecimal digits 0-F, five bytes each.
+        result(16#050#) := x"F0"; result(16#051#) := x"90"; result(16#052#) := x"90"; result(16#053#) := x"90"; result(16#054#) := x"F0";
+        result(16#055#) := x"20"; result(16#056#) := x"60"; result(16#057#) := x"20"; result(16#058#) := x"20"; result(16#059#) := x"70";
+        result(16#05A#) := x"F0"; result(16#05B#) := x"10"; result(16#05C#) := x"F0"; result(16#05D#) := x"80"; result(16#05E#) := x"F0";
+        result(16#05F#) := x"F0"; result(16#060#) := x"10"; result(16#061#) := x"F0"; result(16#062#) := x"10"; result(16#063#) := x"F0";
+        result(16#064#) := x"90"; result(16#065#) := x"90"; result(16#066#) := x"F0"; result(16#067#) := x"10"; result(16#068#) := x"10";
+        result(16#069#) := x"F0"; result(16#06A#) := x"80"; result(16#06B#) := x"F0"; result(16#06C#) := x"10"; result(16#06D#) := x"F0";
+        result(16#06E#) := x"F0"; result(16#06F#) := x"80"; result(16#070#) := x"F0"; result(16#071#) := x"90"; result(16#072#) := x"F0";
+        result(16#073#) := x"F0"; result(16#074#) := x"10"; result(16#075#) := x"20"; result(16#076#) := x"40"; result(16#077#) := x"40";
+        result(16#078#) := x"F0"; result(16#079#) := x"90"; result(16#07A#) := x"F0"; result(16#07B#) := x"90"; result(16#07C#) := x"F0";
+        result(16#07D#) := x"F0"; result(16#07E#) := x"90"; result(16#07F#) := x"F0"; result(16#080#) := x"10"; result(16#081#) := x"F0";
+        result(16#082#) := x"F0"; result(16#083#) := x"90"; result(16#084#) := x"F0"; result(16#085#) := x"90"; result(16#086#) := x"90";
+        result(16#087#) := x"E0"; result(16#088#) := x"90"; result(16#089#) := x"E0"; result(16#08A#) := x"90"; result(16#08B#) := x"E0";
+        result(16#08C#) := x"F0"; result(16#08D#) := x"80"; result(16#08E#) := x"80"; result(16#08F#) := x"80"; result(16#090#) := x"F0";
+        result(16#091#) := x"E0"; result(16#092#) := x"90"; result(16#093#) := x"90"; result(16#094#) := x"90"; result(16#095#) := x"E0";
+        result(16#096#) := x"F0"; result(16#097#) := x"80"; result(16#098#) := x"F0"; result(16#099#) := x"80"; result(16#09A#) := x"F0";
+        result(16#09B#) := x"F0"; result(16#09C#) := x"80"; result(16#09D#) := x"F0"; result(16#09E#) := x"80"; result(16#09F#) := x"80";
 
         return result;
     end function;
+
     signal memory : memory_t := initialize_memory;
-    --signal memory : memory_t := (others => (others => '0'));
 
     attribute ram_style : string;
     attribute ram_style of memory : signal is "block";
-
 
 begin
     process (clock)

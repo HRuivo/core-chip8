@@ -19,6 +19,11 @@ architecture simulation of chip8_engine_tb is
     signal pixel_x  : std_logic_vector(5 downto 0) := (others => '0');
     signal pixel_y  : std_logic_vector(4 downto 0) := (others => '0');
     signal pixel_on : std_logic;
+    signal sound_active : std_logic;
+
+    signal rom_write_enable  : std_logic := '0';
+    signal rom_write_address : std_logic_vector(11 downto 0) := (others => '0');
+    signal rom_write_data    : std_logic_vector(7 downto 0) := (others => '0');
 begin
     -- Clock generation
     clock <= not clock after CLOCK_PERIOD / 2;
@@ -32,7 +37,11 @@ begin
             keypad => keypad,
             pixel_x => pixel_x,
             pixel_y => pixel_y,
-            pixel_on => pixel_on
+            pixel_on => pixel_on,
+            sound_active => sound_active,
+            rom_write_enable => rom_write_enable,
+            rom_write_address => rom_write_address,
+            rom_write_data => rom_write_data
         );
 
     -- Test process

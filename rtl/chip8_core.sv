@@ -63,6 +63,8 @@ module chip8_core
     // Host MCU communication
     // =========================================================================
     localparam ADDR_CONFIG_COLOR = 32'h00001000;
+    localparam ADDR_ROM_START    = 32'h00002000;
+    localparam ADDR_ROM_END      = 32'h00002E00;
     localparam ADDR_REG0 = 32'hF0000000;
     localparam ADDR_REG1 = 32'hF0000004;
     localparam CMD_GET_STATUS     = 16'h0000;
@@ -70,6 +72,8 @@ module chip8_core
     localparam CMD_CORE_HALT      = 16'h0101;
     localparam CMD_SETUP_COMPLETE = 16'h0102;
     localparam CMD_NOTIFY_FOCUS   = 16'h0200;
+    localparam CMD_FILE_WRITE_START = 16'h0300;
+    localparam CMD_FILE_WRITE_END   = 16'h0301;
 
     logic reg_core_setup = 1'b0;
     logic reg_core_reset = 1'b1;
@@ -77,6 +81,16 @@ module chip8_core
 
     logic [31:0] reg_command_host_0, reg_command_host_1;
     logic mem_busy;
+
+    // The host transfers files as 32-bit words, while CHIP-8 memory is byte-wide.
+    // Keep the transaction open while these four bytes are written sequentially.
+    logic        rom_write_active;
+    logic [1:0]  rom_write_index;
+    logic [11:0] rom_write_base_address;
+    logic [31:0] rom_write_word;
+    logic        rom_write_enable;
+    logic [11:0] rom_write_address;
+    logic [7:0]  rom_write_data;
 
     typedef enum logic [2:0] {
         STATUS_UNKNOWN    = 3'd0,
@@ -107,6 +121,18 @@ module chip8_core
 
     logic [23:0] reg_config_color;
 
+    assign rom_write_enable  = rom_write_active;
+    assign rom_write_address = rom_write_base_address + rom_write_index;
+
+    always_comb begin
+        case (rom_write_index)
+            2'd0: rom_write_data = rom_write_word[7:0];
+            2'd1: rom_write_data = rom_write_word[15:8];
+            2'd2: rom_write_data = rom_write_word[23:16];
+            default: rom_write_data = rom_write_word[31:24];
+        endcase
+    end
+
     always_ff @(posedge clk_10mhz) begin
         if (reset) begin
             mem_busy          <= 1'b0;
@@ -117,29 +143,54 @@ module chip8_core
             reg_core_setup     <= 1'b0;
             reg_core_reset     <= 1'b1;
             reg_core_focus     <= 1'b0;
+            rom_write_active   <= 1'b0;
+            rom_write_index    <= 2'd0;
+            rom_write_base_address <= 12'h200;
+            rom_write_word     <= 32'h0;
 
             reg_config_color   <= 24'hFFFFFF;
         end else begin
             // Host memory interface
-            if (host_mem_enable && !mem_busy) begin
-                mem_busy      <= 1'b1;
-
-                if (host_mem_write) begin
-                    case (host_mem_address)
-                        ADDR_REG0: reg_command_host_0 <= host_mem_dataWrite;
-                        ADDR_REG1: reg_command_host_1 <= host_mem_dataWrite;
-                        ADDR_CONFIG_COLOR: reg_config_color <= host_mem_dataWrite[23:0];
-                        default: ;
-                    endcase
+            if (rom_write_active) begin
+                // The VHDL memory writes the currently selected byte on this
+                // edge. Acknowledge only after byte three has been written.
+                if (rom_write_index == 2'd3) begin
+                    rom_write_active <= 1'b0;
+                    mem_busy <= 1'b1;
                 end else begin
-                    case (host_mem_address)
-                        ADDR_REG0: host_mem_dataRead <= reg_command_host_0;
-                        ADDR_REG1: host_mem_dataRead <= reg_command_host_1;
-                        default:   host_mem_dataRead <= 32'h0;
-                    endcase
+                    rom_write_index <= rom_write_index + 1'b1;
+                    mem_busy <= 1'b0;
+                end
+            end else if (host_mem_enable && !mem_busy) begin
+                if (host_mem_write &&
+                    host_mem_address >= ADDR_ROM_START &&
+                    host_mem_address < ADDR_ROM_END) begin
+                    rom_write_active <= 1'b1;
+                    rom_write_index <= 2'd0;
+                    rom_write_base_address <=
+                        12'h200 + host_mem_address[11:0];
+                    rom_write_word <= host_mem_dataWrite;
+                    mem_busy <= 1'b0;
+                end else begin
+                    mem_busy <= 1'b1;
+
+                    if (host_mem_write) begin
+                        case (host_mem_address)
+                            ADDR_REG0: reg_command_host_0 <= host_mem_dataWrite;
+                            ADDR_REG1: reg_command_host_1 <= host_mem_dataWrite;
+                            ADDR_CONFIG_COLOR: reg_config_color <= host_mem_dataWrite[23:0];
+                            default: ;
+                        endcase
+                    end else begin
+                        case (host_mem_address)
+                            ADDR_REG0: host_mem_dataRead <= reg_command_host_0;
+                            ADDR_REG1: host_mem_dataRead <= reg_command_host_1;
+                            default:   host_mem_dataRead <= 32'h0;
+                        endcase
+                    end
                 end
             end else begin
-                mem_busy      <= 1'b0;
+                mem_busy <= 1'b0;
             end
 
             // Host command channel
@@ -162,6 +213,10 @@ module chip8_core
                         reg_core_reset <= 1'b1;
                     end else if (cmd_opcode == CMD_NOTIFY_FOCUS) begin
                         reg_core_focus <= reg_command_host_1[0];
+                    end else if (cmd_opcode == CMD_FILE_WRITE_START ||
+                                 cmd_opcode == CMD_FILE_WRITE_END) begin
+                        // File ID and size are not needed: files.json limits
+                        // file 0 to the available CHIP-8 program memory.
                     end else begin
                         // Unknown command opcode
                         command_host_state <= CMD_STATE_ERROR;
@@ -212,6 +267,7 @@ module chip8_core
     logic [5:0]  chip8_pixel_x;
     logic [4:0]  chip8_pixel_y;
     logic        chip8_pixel_on;
+    logic        chip8_sound_active;
 
     assign chip8_reset      = reset || reg_core_reset;
     assign chip8_run_enable = !reg_core_reset && reg_core_focus;
@@ -240,7 +296,11 @@ module chip8_core
         .keypad     (chip8_keypad),
         .pixel_x    (chip8_pixel_x),
         .pixel_y    (chip8_pixel_y),
-        .pixel_on   (chip8_pixel_on)
+        .pixel_on   (chip8_pixel_on),
+        .sound_active      (chip8_sound_active),
+        .rom_write_enable  (rom_write_enable),
+        .rom_write_address (rom_write_address),
+        .rom_write_data    (rom_write_data)
     );
 
     // Scale 64x32 to 192x96 (3x) and center it in the 240x160 frame.
@@ -280,6 +340,6 @@ module chip8_core
     // =========================================================================
     // Audio output
     // =========================================================================
-    assign audio_left  = 16'h0000;
-    assign audio_right = 16'h0000;
+    assign audio_left  = chip8_sound_active ? 16'h2000 : 16'h0000;
+    assign audio_right = audio_left;
 endmodule

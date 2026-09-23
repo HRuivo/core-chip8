@@ -13,17 +13,19 @@ entity chip8_engine is
         keypad     : in  std_logic_vector(15 downto 0);
         pixel_x    : in  std_logic_vector(5 downto 0);
         pixel_y    : in  std_logic_vector(4 downto 0);
-        pixel_on   : out std_logic
+        pixel_on   : out std_logic;
+        sound_active : out std_logic;
+
+        rom_write_enable  : in std_logic;
+        rom_write_address : in address_t;
+        rom_write_data    : in byte_t
     );
 end entity chip8_engine;
 
 architecture rtl of chip8_engine is
     signal framebuffer : framebuffer_t := (others => (others => '0'));
 
-    signal mem_addr : address_t;
-    signal mem_wdata : byte_t := (others => '0');
     signal mem_rdata : byte_t;
-    signal mem_we : std_logic := '0';
 
     signal cpu_reset : std_logic;
 
@@ -33,6 +35,14 @@ architecture rtl of chip8_engine is
     signal display_y : std_logic_vector(4 downto 0);
     signal display_sprite : byte_t;
     signal display_collision : std_logic := '0';
+
+    signal cpu_mem_addr  : address_t;
+    signal cpu_mem_we    : std_logic;
+    signal cpu_mem_wdata : byte_t;
+
+    signal ram_addr  : address_t;
+    signal ram_we    : std_logic;
+    signal ram_wdata : byte_t;
 begin
     -- The Verilog wrapper continuously queries the pixel being displayed.
     pixel_on <= framebuffer(to_integer(unsigned(pixel_y)))
@@ -77,12 +87,16 @@ begin
         end if;
     end process;
 
+    ram_addr <= rom_write_address when rom_write_enable = '1' else cpu_mem_addr;
+    ram_we <= rom_write_enable or cpu_mem_we;
+    ram_wdata <= rom_write_data when rom_write_enable = '1' else cpu_mem_wdata;
+
     mem : entity work.chip8_memory
     port map (
         clock => clock,
-        address => mem_addr,
-        write_enable => mem_we,
-        write_data => mem_wdata,
+        address => ram_addr,
+        write_enable => ram_we,
+        write_data => ram_wdata,
         read_data => mem_rdata
     );
 
@@ -93,16 +107,17 @@ begin
         clk => clock,
         rst => cpu_reset,
         mem_data => mem_rdata,
-        mem_addr => mem_addr,
-        mem_write_enable => mem_we,
-        mem_write_data => mem_wdata,
+        mem_addr => cpu_mem_addr,
+        mem_write_enable => cpu_mem_we,
+        mem_write_data => cpu_mem_wdata,
         display_clear => display_clear,
         display_draw => display_draw,
         display_x => display_x,
         display_y => display_y,
         display_sprite => display_sprite,
         display_collision => display_collision,
-        keypad => keypad
+        keypad => keypad,
+        sound_active => sound_active
     );
 
 end architecture rtl;

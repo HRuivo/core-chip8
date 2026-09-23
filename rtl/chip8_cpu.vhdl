@@ -23,7 +23,9 @@ entity chip8_cpu is
         display_sprite    : out byte_t;
         display_collision : in  std_logic;
 
-        keypad : in std_logic_vector(15 downto 0)
+        keypad : in std_logic_vector(15 downto 0);
+
+        sound_active : out std_logic
     );
 end entity chip8_cpu;
 
@@ -42,6 +44,10 @@ architecture rtl of chip8_cpu is
         DRAW_DATA,
         DRAW_ROW,
         DRAW_RESULT,
+        --
+        MEMORY_STORE,
+        MEMORY_LOAD_ADDRESS,
+        MEMORY_LOAD_DATA,
         --
         HALT_STATE,
         --
@@ -63,6 +69,9 @@ architecture rtl of chip8_cpu is
     signal draw_row_index : natural range 0 to 15 := 0;
     signal draw_sprite : byte_t := (others => '0');
 
+    signal transfer_index : register_index_t := 0;
+    signal transfer_limit : register_index_t := 0;
+
     signal dt, st : byte_t := (others => '0');
 
     signal stack : stack_t := (others => (others => '0'));
@@ -77,7 +86,16 @@ begin
     mem_addr <= std_logic_vector(
         unsigned(index_register) + to_unsigned(draw_row_index, address_t'length)
     ) when state = DRAW_ADDRESS or state = DRAW_DATA else
+        std_logic_vector(
+            unsigned(index_register) + to_unsigned(transfer_index, address_t'length)
+        ) when state = MEMORY_STORE or
+               state = MEMORY_LOAD_ADDRESS or
+               state = MEMORY_LOAD_DATA else
         std_logic_vector(pc);
+
+    mem_write_enable <= '1' when state = MEMORY_STORE else '0';
+    mem_write_data <= v(transfer_index) when state = MEMORY_STORE else
+                      (others => '0');
 
     display_clear  <= clear_display;
     display_draw   <= '1' when state = DRAW_ROW else '0';
@@ -86,6 +104,8 @@ begin
         draw_y + to_unsigned(draw_row_index, draw_y'length)
     );
     display_sprite <= draw_sprite;
+
+    sound_active <= '1' when unsigned(st) /= 0 else '0';
 
     process (clk)
         variable op_group : nibble_t;
@@ -119,6 +139,9 @@ begin
                 draw_height <= 0;
                 draw_row_index <= 0;
                 draw_sprite <= (others => '0');
+
+                transfer_index <= 0;
+                transfer_limit <= 0;
 
                 dt <= (others => '0');
                 st <= (others => '0');
@@ -364,6 +387,16 @@ begin
                                             )
                                         );
 
+                                    when x"55" =>
+                                        transfer_index <= 0;
+                                        transfer_limit <= x;
+                                        state <= MEMORY_STORE;
+
+                                    when x"65" =>
+                                        transfer_index <= 0;
+                                        transfer_limit <= x;
+                                        state <= MEMORY_LOAD_ADDRESS;
+
                                     when others =>
                                         null;
                                 end case;
@@ -393,6 +426,31 @@ begin
                         if draw_row_index + 1 < draw_height then
                             draw_row_index <= draw_row_index + 1;
                             state <= DRAW_ADDRESS;
+                        else
+                            state <= FETCH_HIGH_ADDRESS;
+                        end if;
+
+                    when MEMORY_STORE =>
+                        -- The memory writes V(transfer_index) at I + index on
+                        -- this rising edge because mem_write_enable is high
+                        -- for the complete MEMORY_STORE cycle.
+                        if transfer_index < transfer_limit then
+                            transfer_index <= transfer_index + 1;
+                        else
+                            state <= FETCH_HIGH_ADDRESS;
+                        end if;
+
+                    when MEMORY_LOAD_ADDRESS =>
+                        -- Present I + transfer_index to synchronous memory.
+                        state <= MEMORY_LOAD_DATA;
+
+                    when MEMORY_LOAD_DATA =>
+                        -- The byte requested in MEMORY_LOAD_ADDRESS is ready.
+                        v(transfer_index) <= mem_data;
+
+                        if transfer_index < transfer_limit then
+                            transfer_index <= transfer_index + 1;
+                            state <= MEMORY_LOAD_ADDRESS;
                         else
                             state <= FETCH_HIGH_ADDRESS;
                         end if;
