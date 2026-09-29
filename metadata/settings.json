@@ -1,5 +1,18 @@
 {
-	"settings": [
-		
-	]
+    "settings": [
+        {
+            "id": 1,
+            "label": "Display Color",
+            "address": "0x00001000",
+            "type": "list",
+            "items": [
+                { "label": "White", "value": "0xFFFFFF" },
+                { "label": "Green", "value": "0x9BBC0F" },
+                { "label": "Amber", "value": "0xFFB000" },
+                { "label": "Cyan", "value": "0x00FFFF" },
+                { "label": "Red", "value": "0xFF4040" }
+            ],
+            "default": "0xFFFFFF"
+        }
+    ]
 }

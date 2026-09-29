@@ -178,7 +178,7 @@ module chip8_core
                         case (host_mem_address)
                             ADDR_REG0: reg_command_host_0 <= host_mem_dataWrite;
                             ADDR_REG1: reg_command_host_1 <= host_mem_dataWrite;
-                            ADDR_CONFIG_COLOR: reg_config_color <= host_mem_dataWrite[23:0];
+                            ADDR_CONFIG_COLOR: reg_config_color <= host_mem_dataWrite;
                             default: ;
                         endcase
                     end else begin
@@ -340,6 +340,31 @@ module chip8_core
     // =========================================================================
     // Audio output
     // =========================================================================
-    assign audio_left  = chip8_sound_active ? 16'h2000 : 16'h0000;
+    localparam int BUZZER_FREQUENCY_HZ = 440;
+    localparam int BUZZER_HALF_PERIOD_CYCLES =
+        10_000_000 / (2 * BUZZER_FREQUENCY_HZ);
+    localparam int BUZZER_COUNTER_WIDTH =
+        $clog2(BUZZER_HALF_PERIOD_CYCLES);
+
+    logic [BUZZER_COUNTER_WIDTH-1:0] buzzer_counter = '0;
+    logic buzzer_phase = 1'b0;
+
+    always_ff @(posedge clk_10mhz) begin
+        if (chip8_reset || !chip8_run_enable || !chip8_sound_active) begin
+            buzzer_counter <= '0;
+            buzzer_phase   <= 1'b0;
+        end else if (buzzer_counter ==
+                     BUZZER_COUNTER_WIDTH'(BUZZER_HALF_PERIOD_CYCLES - 1)) begin
+            buzzer_counter <= '0;
+            buzzer_phase   <= !buzzer_phase;
+        end else begin
+            buzzer_counter <= buzzer_counter + 1'b1;
+        end
+    end
+
+    // AudioV0 carries signed PCM. Alternating equally around zero produces an
+    // audible square wave without the DC offset of a constant positive sample.
+    assign audio_left = !chip8_sound_active ? 16'sh0000 :
+                        buzzer_phase         ? -16'sh2000 : 16'sh2000;
     assign audio_right = audio_left;
 endmodule
